@@ -6,16 +6,29 @@
 #define pin_hm A3  // pin doc du lieu tu cam bien do am dat
 #define pin_valve 9 // pin kich van tuoi
 
+/* FIXME stub pin numbers */
+#define PIN_BUTTON_0 B0
+#define PIN_BUTTON_1 B1
+#define PIN_BUTTON_2 B2
+
+enum AutowateringTimeSetAction {
+	NOP,
+	HOUR_0,
+	HOUR_1,
+	MINUTE_0,
+	MINUTE_1
+};
+
 LiquidCrystal_I2C lcd(0x27,16,2);
 DS1307 rtc(0x68);
 
 // Dat thoi gian tuoi cay 
 /* Thoi gian tuoi lan 1 */
-uint8_t const time1_hr = 9;
-uint8_t const time1_mn = 0;
+uint8_t time1_hr = 9;
+uint8_t time1_mn = 0;
 /* Thoi gian tuoi lan 2 */
-uint8_t const time2_hr = 15;
-uint8_t const time2_mn = 0;
+uint8_t time2_hr = 15;
+uint8_t time2_mn = 0;
 
 // Do am can tuoi (nguong duoi')
 uint8_t hm1 = 20;
@@ -43,6 +56,10 @@ void setup() {
   pinMode(pin_valve,OUTPUT);
   // chac chan rang ban dau chan kich van la LOW
   digitalWrite(pin_valve,LOW);
+
+	pinMode(PIN_BUTTON_0,INPUT);
+	pinMode(PIN_BUTTON_1,INPUT);
+	pinMode(PIN_BUTTON_2,INPUT);
 }
 
 // Ham hien thi gio:phut:giay len lcd
@@ -87,6 +104,66 @@ void CheckOnActive(){
       on_off = 0;
     }
   }
+}
+
+void
+autowatering_time_set_value(uint8_t *v)
+{
+	/* FIXME slow functions */
+	lcd.clear();
+	lcd.print(String(*v));
+
+	if (digitalRead(PIN_BUTTON_0) == HIGH) {
+		return;
+	}
+	/* FIXME no bound checking */
+	if (digitalRead(PIN_BUTTON_1) == HIGH) {
+		*v = *v + 1;
+	}
+	if (digitalRead(PIN_BUTTON_2) == HIGH) {
+		*v = *v - 1;
+	}
+}
+
+void
+autowatering_time_set(void)
+{
+	static enum AutowateringTimeSetAction a = NOP;
+
+	if (digitalRead(PIN_BUTTON_0) == HIGH) {
+		/* masochism */
+		switch (a) {
+		case NOP:
+			a = HOUR_0;
+			break;
+		case HOUR_0:
+			a = MINUTE_0;
+			break;
+		case MINUTE_0:
+			a = HOUR_1;
+			break;
+		case HOUR_1:
+			a = MINUTE_1;
+			break;
+		case MINUTE_1:
+			a = NOP;
+		}
+	}
+	switch (a) {
+	case NOP:
+		break;
+	case HOUR_0:
+		autowatering_time_set_value(&time1_hr);
+		break;
+	case MINUTE_0:
+		autowatering_time_set_value(&time1_mn);
+		break;
+	case HOUR_1:
+		autowatering_time_set_value(&time2_hr);
+		break;
+	case MINUTE_1:
+		autowatering_time_set_value(&time2_mn);
+	}
 }
 
 void loop() {
