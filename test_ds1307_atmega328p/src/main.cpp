@@ -1,6 +1,7 @@
-#include <Arduino.h>
+#include<Arduino.h>
+#include<rtc.h>
+
 #include "LiquidCrystal_I2C.h"
-#include "DS1307.h"
 
 /* FIXME stub pin numbers */
 #define PIN_BUTTON_0 B0
@@ -19,16 +20,6 @@ static uint8_t schedule_0_minute = 0;
 static uint8_t schedule_1_hour   = 15;
 static uint8_t schedule_1_minute = 0;
 
-enum Datetime {
-	SECOND      = 0,
-	MINUTE      = 1,
-	HOUR        = 2,
-	DAY_OF_WEEK = 3,
-	DAY         = 4,
-	MONTH       = 5,
-	YEAR        = 6
-};
-
 enum AutowateringTimeSetAction {
 	NOP,
 	HOUR_0,
@@ -38,7 +29,6 @@ enum AutowateringTimeSetAction {
 };
 
 LiquidCrystal_I2C lcd(0x27,16,2);
-DS1307 rtc(0x68);
 
 void
 setup()
@@ -122,19 +112,6 @@ autowatering_time_set(void)
 	}
 }
 
-static uint8_t
-rtc_load(enum Datetime type)
-{
-	Wire.beginTransmission(ADDRESS_RTC);
-	Wire.write(type);
-	Wire.endTransmission();
-	Wire.requestFrom(ADDRESS_RTC,1);
-	if (type == HOUR) {
-		return Wire.read() & 0x3f;
-	}
-	return Wire.read();
-}
-
 void
 loop()
 {
@@ -148,9 +125,9 @@ loop()
 	lcd.print("Do am: " + String(humidity) + "%");
 
 	/* FIXME no sleeping mode */
-	if (((rtc_load(SECOND) <= 2 && humidity < HUMIDITY_CRITICAL)
-	  || (rtc_load(HOUR) == SCHEDULE_0_HOUR && rtc_load(MINUTE) == SCHEDULE_0_MINUTE)
-	  || (rtc_load(HOUR) == SCHEDULE_1_HOUR && rtc_load(MINUTE) == SCHEDULE_1_MINUTE))
+	if (((ds1307_load(SECOND) <= 2 && humidity < HUMIDITY_CRITICAL)
+	  || (ds1307_load(HOUR) == SCHEDULE_0_HOUR && ds1307_load(MINUTE) == SCHEDULE_0_MINUTE)
+	  || (ds1307_load(HOUR) == SCHEDULE_1_HOUR && ds1307_load(MINUTE) == SCHEDULE_1_MINUTE))
 	 && humidity <= HUMIDITY_GOOD) {
 		digitalWrite(PIN_VALVE,HIGH);
 	} else {
