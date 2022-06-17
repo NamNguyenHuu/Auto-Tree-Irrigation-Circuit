@@ -1,3 +1,4 @@
+#include<Wire.h>
 #include"rtc.h"
 
 static const uint8_t ADDRESS = 0x68;
