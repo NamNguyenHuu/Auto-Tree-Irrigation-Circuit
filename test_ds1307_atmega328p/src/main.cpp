@@ -1,15 +1,33 @@
 #include <Arduino.h>
 #include "LiquidCrystal_I2C.h"
 #include "DS1307.h"
-#include "Mylib.h"
-
-#define pin_hm A3  // pin doc du lieu tu cam bien do am dat
-#define pin_valve 9 // pin kich van tuoi
 
 /* FIXME stub pin numbers */
 #define PIN_BUTTON_0 B0
 #define PIN_BUTTON_1 B1
 #define PIN_BUTTON_2 B2
+
+#define PIN_HUMIDITY A3
+#define PIN_VALVE    9
+#define ADDRESS_RTC  0x68
+
+#define HUMIDITY_CRITICAL 25;
+#define HUMIDITY_GOOD     70;
+
+static uint8_t schedule_0_hour   = 9;
+static uint8_t schedule_0_minute = 0;
+static uint8_t schedule_1_hour   = 15;
+static uint8_t schedule_1_minute = 0;
+
+enum Datetime {
+	SECOND      = 0,
+	MINUTE      = 1,
+	HOUR        = 2,
+	DAY_OF_WEEK = 3,
+	DAY         = 4,
+	MONTH       = 5,
+	YEAR        = 6
+};
 
 enum AutowateringTimeSetAction {
 	NOP,
@@ -22,91 +40,29 @@ enum AutowateringTimeSetAction {
 LiquidCrystal_I2C lcd(0x27,16,2);
 DS1307 rtc(0x68);
 
-// Dat thoi gian tuoi cay 
-/* Thoi gian tuoi lan 1 */
-uint8_t time1_hr = 9;
-uint8_t time1_mn = 0;
-/* Thoi gian tuoi lan 2 */
-uint8_t time2_hr = 15;
-uint8_t time2_mn = 0;
-
-// Do am can tuoi (nguong duoi')
-uint8_t hm1 = 20;
-
-// Do am ngung tuoi (nguong tren)
-uint8_t hm2 = 60;
-
-//long long last_check;
-
-/* on_off 
-      = 0: van tat, san sang kiem tra thoi gian va do am.
-      = 1: da kiem tra, xac nhan phu hop dieu kien, chuan bi tuoi.
-      = 2: dang tuoi.
-      */ 
-uint8_t on_off = 0;
-
-void setup() {
-  Wire.begin();
-  Serial.begin(115200);
-  lcd.init();
-  lcd.backlight();
-  /* Phuong thuc SetTime - Thu tu tham so: Ngay, thang, nam, gio, phut, giay, thu'*/
-  rtc.SetTime(10,6,22,8,59,50,2);
-  pinMode(pin_hm,INPUT);
-  pinMode(pin_valve,OUTPUT);
-  // chac chan rang ban dau chan kich van la LOW
-  digitalWrite(pin_valve,LOW);
-
+void
+setup()
+{
+	Wire.begin();
+	lcd.init();
+	lcd.backlight();
+	/* FIXME hardcoded datetime value */
+	rtc.SetTime(10,6,22,8,59,50,2);
+	pinMode(PIN_HUMIDITY,INPUT);
+	pinMode(PIN_VALVE,OUTPUT);
 	pinMode(PIN_BUTTON_0,INPUT);
 	pinMode(PIN_BUTTON_1,INPUT);
 	pinMode(PIN_BUTTON_2,INPUT);
+	digitalWrite(PIN_VALVE,LOW);
 }
 
-// Ham hien thi gio:phut:giay len lcd
-void Display(){
-  lcd.setCursor(4,0);
-  lcd.print(FixValToDisplay(rtc.ReadHour24())+ ":" 
-              + FixValToDisplay(rtc.ReadMinute()) + ":"
-                  + FixValToDisplay(rtc.ReadSecond()));
-  lcd.setCursor(0,1);
-  //last_check = millis();
-  
-  lcd.print("DO AM: " + FixValToDisplay(ReadHumidity(pin_hm)) + "%");
+static String
+bcd_to_string(uint8_t v)
+{
+	return String(v & 0xf0) + String(v & 0x0f);
 }
 
-// Ham kiem tra thoi gian va do am de kich van 
-void CheckOnActive(){
-  if(on_off == 0){
-    // Khi kiem tra vao dau thoi gian hen gio-- va --- troi khong co mua (do am thap hon hm2)
-    Serial.println(rtc.ReadSecond());
-    if(((2 - rtc.ReadSecond()) >= 0) && ReadHumidity(pin_hm) < hm2){
-      Serial.print("on1");
-      // neu gio va phut bang hoac do am be hon hm1
-      if( (rtc.ReadHour24() == time1_hr && rtc.ReadMinute() == time1_mn) || 
-      (rtc.ReadHour24() == time2_hr && rtc.ReadMinute() == time2_mn) || ReadHumidity(pin_hm) < hm1) 
-        // san sang kich van 
-        on_off = 1;
-        Serial.println(on_off);
-    } 
-  }
-  else if (on_off == 1) {
-    // bat dau kich van
-    digitalWrite(pin_valve,HIGH);
-    // co` thong bao van dang hoat dong
-    on_off = 2;
-  }
-  else if (on_off == 2) {
-    // khi van dang hoat dong , neu do am > hm2
-    if(ReadHumidity(pin_hm) > hm2) {
-      // tat van
-      digitalWrite(pin_valve,LOW);
-      // thong bao van dang tat, san sang kiem tra cho lan tiep theo
-      on_off = 0;
-    }
-  }
-}
-
-void
+static void
 autowatering_time_set_value(uint8_t *v)
 {
 	/* FIXME slow functions */
@@ -125,7 +81,7 @@ autowatering_time_set_value(uint8_t *v)
 	}
 }
 
-void
+static void
 autowatering_time_set(void)
 {
 	static enum AutowateringTimeSetAction a = NOP;
@@ -153,23 +109,53 @@ autowatering_time_set(void)
 	case NOP:
 		break;
 	case HOUR_0:
-		autowatering_time_set_value(&time1_hr);
+		autowatering_time_set_value(&schedule_0_hour);
 		break;
 	case MINUTE_0:
-		autowatering_time_set_value(&time1_mn);
+		autowatering_time_set_value(&schedule_0_minute);
 		break;
 	case HOUR_1:
-		autowatering_time_set_value(&time2_hr);
+		autowatering_time_set_value(&schedule_1_hour);
 		break;
 	case MINUTE_1:
-		autowatering_time_set_value(&time2_mn);
+		autowatering_time_set_value(&schedule_1_minute);
 	}
 }
 
-void loop() {
-  Display();
-  CheckOnActive();
-  delay(200);
-  // put your main code here, to run repeatedly:
+static uint8_t
+rtc_load(enum Datetime type)
+{
+	Wire.beginTransmission(ADDRESS_RTC);
+	Wire.write(type);
+	Wire.endTransmission();
+	Wire.requestFrom(ADDRESS_RTC,1);
+	if (type == HOUR) {
+		return Wire.read() & 0x3f;
+	}
+	return Wire.read();
 }
 
+void
+loop()
+{
+	uint8_t humidity = map(analogRead(PIN_HUMIDITY),0,1023,100,0);
+
+	lcd.setCursor(4,0);
+	lcd.print(bcd_to_string(rtc.ReadHour24())
+	  + ":" + bcd_to_string(rtc.ReadMinute())
+	  + ":" + bcd_to_string(rtc.ReadSecond()));
+	lcd.setCursor(0,1);
+	lcd.print("Do am: " + String(humidity) + "%");
+
+	/* FIXME no sleeping mode */
+	if (((rtc_load(SECOND) <= 2 && humidity < HUMIDITY_CRITICAL)
+	  || (rtc_load(HOUR) == SCHEDULE_0_HOUR && rtc_load(MINUTE) == SCHEDULE_0_MINUTE)
+	  || (rtc_load(HOUR) == SCHEDULE_1_HOUR && rtc_load(MINUTE) == SCHEDULE_1_MINUTE))
+	 && humidity <= HUMIDITY_GOOD) {
+		digitalWrite(PIN_VALVE,HIGH);
+	} else {
+		digitalWrite(PIN_VALVE,LOW);
+	}
+
+	delay(200);
+}
