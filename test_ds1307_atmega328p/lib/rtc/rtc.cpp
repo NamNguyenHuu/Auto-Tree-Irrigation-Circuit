@@ -17,10 +17,14 @@ ds1307_load(enum DS1307Datetime type)
 }
 
 void
-ds1307_save(enum DS1307Datetime type,uint8_t * value)
+ds1307_save(enum DS1307Datetime type, uint8_t * value)
 {
 	Wire.beginTransmission(ADDRESS);
 	Wire.write(type);
-	Wire.write(*value);
+	if (type == HOUR) {
+		Wire.write(*value | 0x40);
+	} else {
+		Wire.write(*value);
+	}
 	Wire.endTransmission();
 }

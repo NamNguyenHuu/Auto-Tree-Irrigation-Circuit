@@ -25,7 +25,8 @@ enum AutowateringTimeSetAction {
 	HOUR_0,
 	HOUR_1,
 	MINUTE_0,
-	MINUTE_1
+	MINUTE_1,
+	ACTION_BOUNDARY
 };
 
 LiquidCrystal_I2C lcd(0x27,16,2);
@@ -37,7 +38,13 @@ setup()
 	lcd.init();
 	lcd.backlight();
 	/* FIXME hardcoded datetime value */
-	rtc.SetTime(10,6,22,8,59,50,2);
+	ds1307_save(YEAR,0x22);
+	ds1307_save(MONTH,7);
+	ds1307_save(DAY,2);
+	ds1307_save(DATE,0x7)
+	ds1307_save(HOUR,9);
+	ds1307_save(MINUTE,0x40);
+	ds1307_save(SECOND,5);
 	pinMode(PIN_HUMIDITY,INPUT);
 	pinMode(PIN_VALVE,OUTPUT);
 	pinMode(PIN_BUTTON_0,INPUT);
@@ -46,28 +53,51 @@ setup()
 	digitalWrite(PIN_VALVE,LOW);
 }
 
-static String
-bcd_to_string(uint8_t v)
+static uint8_t
+bcd(uint8_t z)
 {
-	return String(v & 0xf0) + String(v & 0x0f);
+	return ((z / 10) << 4) + (z % 10);
+}
+
+static String
+bcd_to_string(uint8_t d)
+{
+	return String(d >> 4) + String(d & 0x0f);
 }
 
 static void
-autowatering_time_set_value(uint8_t *v)
+autowatering_time_set_value(enum DS1037Datetime type, uint8_t *value)
 {
+	uint8_t limit;
+
+	/* TODO add more limits */
+	switch (type) {
+	case MINUTE:
+		*limit = 60;
+		break;
+	case HOUR:
+		*limit = 24;
+		break;
+	default:
+		*limit = 0;
+	}
+
 	/* FIXME slow functions */
 	lcd.clear();
-	lcd.print(String(*v));
+	lcd.print(String(*value));
 
 	if (digitalRead(PIN_BUTTON_0) == HIGH) {
 		return;
 	}
-	/* FIXME no bound checking */
 	if (digitalRead(PIN_BUTTON_1) == HIGH) {
-		*v = *v + 1;
+		if (*value < limit) {
+			*value = *value + 1;
+		}
 	}
 	if (digitalRead(PIN_BUTTON_2) == HIGH) {
-		*v = *v - 1;
+		if (*value > 0) {
+			*value = *value - 1;
+		}
 	}
 }
 
@@ -77,38 +107,22 @@ autowatering_time_set(void)
 	static enum AutowateringTimeSetAction a = NOP;
 
 	if (digitalRead(PIN_BUTTON_0) == HIGH) {
-		/* masochism */
-		switch (a) {
-		case NOP:
-			a = HOUR_0;
-			break;
-		case HOUR_0:
-			a = MINUTE_0;
-			break;
-		case MINUTE_0:
-			a = HOUR_1;
-			break;
-		case HOUR_1:
-			a = MINUTE_1;
-			break;
-		case MINUTE_1:
-			a = NOP;
-		}
+		a = (a + 1) % ACTION_BOUNDARY;
 	}
 	switch (a) {
 	case NOP:
 		break;
 	case HOUR_0:
-		autowatering_time_set_value(&schedule_0_hour);
+		autowatering_time_set_value(HOUR,&schedule_0_hour);
 		break;
 	case MINUTE_0:
-		autowatering_time_set_value(&schedule_0_minute);
+		autowatering_time_set_value(MINUTE,&schedule_0_minute);
 		break;
 	case HOUR_1:
-		autowatering_time_set_value(&schedule_1_hour);
+		autowatering_time_set_value(HOUR,&schedule_1_hour);
 		break;
 	case MINUTE_1:
-		autowatering_time_set_value(&schedule_1_minute);
+		autowatering_time_set_value(MINUTE,&schedule_1_minute);
 	}
 }
 
@@ -117,6 +131,17 @@ loop()
 {
 	uint8_t humidity = map(analogRead(PIN_HUMIDITY),0,1023,100,0);
 
+	bool is_critical = ds1307_load(SECOND) <= 2 && humidity < HUMIDITY_CRITICAL;
+	bool on_hour_0   = ds1307_load(HOUR)   == bcd(schedule_0_hour);
+	bool on_minute_0 = ds1307_load(MINUTE) == bcd(schedule_0_minute);
+	bool on_hour_1   = ds1307_load(HOUR)   == bcd(schedule_0_hour);
+	bool on_minute_1 = ds1307_load(MINUTE) == bcd(schedule_0_minute);
+
+	bool on_schedule_0 = on_hour_0 && on_minute_0;
+	bool on_schedule_1 = on_hour_1 && on_minute_1;
+
+	bool on_schedule = on_schedule_0 || on_schedule_1;
+
 	lcd.setCursor(4,0);
 	lcd.print(bcd_to_string(rtc.ReadHour24())
 	  + ":" + bcd_to_string(rtc.ReadMinute())
@@ -124,11 +149,10 @@ loop()
 	lcd.setCursor(0,1);
 	lcd.print("Do am: " + String(humidity) + "%");
 
+	autowatering_time_set();
+
 	/* FIXME no sleeping mode */
-	if (((ds1307_load(SECOND) <= 2 && humidity < HUMIDITY_CRITICAL)
-	  || (ds1307_load(HOUR) == SCHEDULE_0_HOUR && ds1307_load(MINUTE) == SCHEDULE_0_MINUTE)
-	  || (ds1307_load(HOUR) == SCHEDULE_1_HOUR && ds1307_load(MINUTE) == SCHEDULE_1_MINUTE))
-	 && humidity <= HUMIDITY_GOOD) {
+	if (is_critical || (on_schedule && humidity < HUMIDITY_GOOD)) {
 		digitalWrite(PIN_VALVE,HIGH);
 	} else {
 		digitalWrite(PIN_VALVE,LOW);

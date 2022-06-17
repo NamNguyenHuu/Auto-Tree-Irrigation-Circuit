@@ -1,12 +1,12 @@
 enum DS1307Datetime {
 	SECOND,
-	MINUTE
+	MINUTE,
 	HOUR,
-	DAY_OF_WEEK,
+	DATE,
 	DAY,
 	MONTH,
-	YEAR,
-	UNKNOWN
+	YEAR
 };
 
-uint8_t ds1307_load(enum DS1307Datetime)
+uint8_t ds1307_load(enum DS1307Datetime);
+void    ds1307_save(enum DS1307Datetime type, uint8_t * value);
