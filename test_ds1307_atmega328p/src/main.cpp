@@ -99,6 +99,7 @@ autowatering_time_set_value(enum DS1037Datetime type, uint8_t *value)
 
 static void
 autowatering_time_set(void)
+{
 	static enum AutowateringTimeSetAction a = NOP;
 
 	if (digitalRead(PIN_BUTTON_0) == HIGH) {
