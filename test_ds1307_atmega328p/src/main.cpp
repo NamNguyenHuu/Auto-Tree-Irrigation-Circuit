@@ -38,13 +38,13 @@ setup()
 	lcd.init();
 	lcd.backlight();
 	/* FIXME hardcoded datetime value */
+	ds1307_save(DAY,10);
+	ds1307_save(MONTH,6);
 	ds1307_save(YEAR,0x22);
-	ds1307_save(MONTH,7);
-	ds1307_save(DAY,2);
-	ds1307_save(DATE,0x7)
-	ds1307_save(HOUR,9);
-	ds1307_save(MINUTE,0x40);
-	ds1307_save(SECOND,5);
+	ds1307_save(HOUR,8);
+	ds1307_save(MINUTE,0x59);
+	ds1307_save(SECOND,0x50);
+	ds1307_save(DATE,2);
 	pinMode(PIN_HUMIDITY,INPUT);
 	pinMode(PIN_VALVE,OUTPUT);
 	pinMode(PIN_BUTTON_0,INPUT);
