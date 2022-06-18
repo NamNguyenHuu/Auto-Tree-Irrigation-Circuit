@@ -82,10 +82,6 @@ autowatering_time_set_value(enum DS1037Datetime type, uint8_t *value)
 		*limit = 0;
 	}
 
-	/* FIXME slow functions */
-	lcd.clear();
-	lcd.print(String(*value));
-
 	if (digitalRead(PIN_BUTTON_0) == HIGH) {
 		return;
 	}
@@ -103,7 +99,6 @@ autowatering_time_set_value(enum DS1037Datetime type, uint8_t *value)
 
 static void
 autowatering_time_set(void)
-{
 	static enum AutowateringTimeSetAction a = NOP;
 
 	if (digitalRead(PIN_BUTTON_0) == HIGH) {
@@ -113,15 +108,23 @@ autowatering_time_set(void)
 	case NOP:
 		break;
 	case HOUR_0:
+		lcd.setCursor(0,0);
+		lcd.print("Gio tuoi 1: " + schedule_0_hour);
 		autowatering_time_set_value(HOUR,&schedule_0_hour);
 		break;
 	case MINUTE_0:
+		lcd.setCursor(0,0);
+		lcd.print("Phut tuoi 1: " + schedule_0_minute);
 		autowatering_time_set_value(MINUTE,&schedule_0_minute);
 		break;
 	case HOUR_1:
+		lcd.setCursor(0,0);
+		lcd.print("Gio tuoi 2: " + schedule_1_hour);
 		autowatering_time_set_value(HOUR,&schedule_1_hour);
 		break;
 	case MINUTE_1:
+		lcd.setCursor(0,0);
+		lcd.print("Phut tuoi 2: " + schedule_1_minute);
 		autowatering_time_set_value(MINUTE,&schedule_1_minute);
 	}
 }
@@ -142,10 +145,10 @@ loop()
 
 	bool on_schedule = on_schedule_0 || on_schedule_1;
 
-	lcd.setCursor(4,0);
-	lcd.print(bcd_to_string(rtc.ReadHour24())
-	  + ":" + bcd_to_string(rtc.ReadMinute())
-	  + ":" + bcd_to_string(rtc.ReadSecond()));
+	lcd.setCursor(0,0);
+	lcd.print(bcd_to_string(rtc_load(HOUR))
+	  + ":" + bcd_to_string(rtc_load(MINUTE))
+	  + ":" + bcd_to_string(rtc_load(SECOND));
 	lcd.setCursor(0,1);
 	lcd.print("Do am: " + String(humidity) + "%");
 
