@@ -118,9 +118,9 @@ ds1307_save(int type, int value)
 bool
 valve_control(void)
 {
-	bool on_hour_0   = ds1307_load(HOUR)	 == bcd(schedule_0_hour);
+	bool on_hour_0   = ds1307_load(HOUR)   == bcd(schedule_0_hour);
 	bool on_minute_0 = ds1307_load(MINUTE) == bcd(schedule_0_minute);
-	bool on_hour_1   = ds1307_load(HOUR)	 == bcd(schedule_0_hour);
+	bool on_hour_1   = ds1307_load(HOUR)   == bcd(schedule_0_hour);
 	bool on_minute_1 = ds1307_load(MINUTE) == bcd(schedule_0_minute);
 
 	bool on_schedule_0 = on_hour_0 && on_minute_0;
