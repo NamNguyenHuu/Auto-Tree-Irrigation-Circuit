@@ -41,7 +41,7 @@ static LiquidCrystal_I2C lcd(0x27,16,2);
 static EvtManager mgr;
 
 static EvtListener * display;
-static EvtListener * toggle;
+static EvtListener * valve;
 static EvtListener * button[3];
 
 void
@@ -68,12 +68,13 @@ setup()
 	digitalWrite(PIN_VALVE,LOW);
 
 	display   = new EvtTimeListener(200,true,(EvtAction)lcd_output);
-	toggle    = new EvtTimeListener(1000,true,(EvtAction)valve_control);
+	valve     = new EvtTimeListener(1000,true,(EvtAction)valve_control);
 	button[0] = new EvtPinListener(PIN_BUTTON_0,(EvtAction)mode_change);
 	button[1] = new EvtPinListener(PIN_BUTTON_1,(EvtAction)time_increase);
 	button[2] = new EvtPinListener(PIN_BUTTON_2,(EvtAction)time_decrease);
 
 	mgr.addListener(display);
+	mgr.addListener(valve);
 	mgr.addListener(button[0]);
 }
 
