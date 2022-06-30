@@ -13,7 +13,7 @@
 static const int HUMIDITY_CRITICAL = 25;
 static const int HUMIDITY_GOOD     = 70;
 
-static int humidity;
+static int humidity = -1;
 
 static int mode              = 0;
 static int schedule_0_hour   = 9;
