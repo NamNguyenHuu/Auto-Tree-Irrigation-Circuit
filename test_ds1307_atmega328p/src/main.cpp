@@ -76,6 +76,8 @@ setup()
 	mgr.addListener(display);
 	mgr.addListener(valve);
 	mgr.addListener(button[0]);
+	mgr.addListener(button[1]);
+	mgr.addListener(button[2]);
 }
 
 int
