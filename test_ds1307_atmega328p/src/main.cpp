@@ -3,11 +3,11 @@
 
 #include"LiquidCrystal_I2C.h"
 
-#define PIN_BUTTON_0 0
-#define PIN_BUTTON_1 1
-#define PIN_BUTTON_2 2
+#define PIN_SENSOR   A3
+#define PIN_BUTTON_0  0
+#define PIN_BUTTON_1  1
+#define PIN_BUTTON_2  2
 
-#define PIN_HUMIDITY A3
 #define PIN_VALVE     9
 
 static const int HUMIDITY_CRITICAL = 25;
@@ -41,7 +41,7 @@ static LiquidCrystal_I2C lcd(0x27,16,2);
 static EvtManager mgr;
 
 static EvtListener * display;
-static EvtListener * valve;
+static EvtListener * sensor;
 static EvtListener * button[3];
 
 void
@@ -59,22 +59,22 @@ setup()
 	ds1307_save(SECOND,0x50);
 	ds1307_save(DATE,2);
 
-	pinMode(PIN_HUMIDITY,INPUT);
-	pinMode(PIN_VALVE,OUTPUT);
+	pinMode(PIN_SENSOR,INPUT);
 	pinMode(PIN_BUTTON_0,INPUT);
 	pinMode(PIN_BUTTON_1,INPUT);
 	pinMode(PIN_BUTTON_2,INPUT);
-
+	pinMode(PIN_VALVE,OUTPUT);
+	
 	digitalWrite(PIN_VALVE,LOW);
 
 	display   = new EvtTimeListener(200,true,(EvtAction)lcd_output);
-	valve     = new EvtTimeListener(1000,true,(EvtAction)valve_control);
+	sensor    = new EvtTimeListener(1000,true,(EvtAction)valve_control);
 	button[0] = new EvtPinListener(PIN_BUTTON_0,(EvtAction)mode_change);
 	button[1] = new EvtPinListener(PIN_BUTTON_1,(EvtAction)time_increase);
 	button[2] = new EvtPinListener(PIN_BUTTON_2,(EvtAction)time_decrease);
 
 	mgr.addListener(display);
-	mgr.addListener(valve);
+	mgr.addListener(sensor);
 	mgr.addListener(button[0]);
 	mgr.addListener(button[1]);
 	mgr.addListener(button[2]);
@@ -131,7 +131,7 @@ valve_control(void)
 
 	bool on_schedule = on_schedule_0 || on_schedule_1;
 
-	humidity = map(analogRead(PIN_HUMIDITY),0,1023,100,0);
+	humidity = map(analogRead(PIN_SENSOR),0,1023,100,0);
 
 	if (humidity < HUMIDITY_CRITICAL || (on_schedule && humidity < HUMIDITY_GOOD)) {
 		digitalWrite(PIN_VALVE,HIGH);
